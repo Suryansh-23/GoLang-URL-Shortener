@@ -121,7 +121,12 @@ func shorten(w http.ResponseWriter, r *http.Request, urlMap URLMap) {
 		http.Error(w, "Request Body Invalid", http.StatusBadRequest)
 	}
 
+	// Edge Case: If the random string is already there we iterate until the new shortURL is unique
 	shortURL := getRandomLink()
+	for urlMap[shortURL].ToURL != "" {
+		shortURL = getRandomLink()
+	}
+
 	timestamp := GetTimestamp()
 	u, err := url.Parse(body.URL)
 	if err != nil {
