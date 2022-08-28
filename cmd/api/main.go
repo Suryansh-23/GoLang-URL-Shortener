@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"io/fs"
@@ -157,6 +158,12 @@ func handleRequests(urlMap URLMap) {
 func main() {
 
 	db := URLMap{}
+
+	_, err := os.Stat("cmd/db/db.json")
+	if errors.Is(err, os.ErrNotExist) {
+		os.Create("cmd/db/db.json")
+	}
+
 	file, err := os.ReadFile("cmd/db/db.json")
 	if err != nil {
 		panic(err)
