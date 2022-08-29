@@ -1,4 +1,4 @@
-package api
+package main
 
 import (
 	"encoding/json"
@@ -49,9 +49,7 @@ func GetTimestamp() string {
 	return time.Now().Format(time.RFC822Z)
 }
 
-func Cleanup(db URLMap, endGoRoutines *chan bool) {
-	*endGoRoutines <- false
-
+func Cleanup(db URLMap) {
 	dbByte, err := json.Marshal(db)
 	if err != nil {
 		panic(err)
@@ -60,14 +58,13 @@ func Cleanup(db URLMap, endGoRoutines *chan bool) {
 	os.WriteFile("cmd/db/db.json", dbByte, fs.FileMode(os.O_TRUNC)|fs.FileMode(os.O_WRONLY))
 }
 
-func SetupCloseHandler(db URLMap, endGoRoutines *chan bool) {
+func SetupCloseHandler(db URLMap) {
 	c := make(chan os.Signal)
 	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
-	
 	go func() {
 		<-c
 		fmt.Println("\r- Ctrl+C pressed in Terminal")
-		Cleanup(db, endGoRoutines)
+		Cleanup(db)
 		os.Exit(0)
 	}()
 }
@@ -144,7 +141,7 @@ func shorten(w http.ResponseWriter, r *http.Request, urlMap URLMap) {
 	fmt.Printf("[%s]: %s\n", GetIP(r), r.URL)
 }
 
-func HandleRequests(urlMap URLMap) {
+func handleRequests(urlMap URLMap) {
 	muxRouter := mux.NewRouter().StrictSlash(true)
 
 	muxRouter.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
@@ -160,12 +157,12 @@ func HandleRequests(urlMap URLMap) {
 		fmt.Println("Inside Shorten")
 		shorten(w, r, urlMap)
 	}).Methods("POST")
-
-	fmt.Printf("API Server Starting...")
 	log.Fatal(http.ListenAndServe(hostURL, muxRouter))
 }
 
-func APInit(db *URLMap, signal *chan bool) {
+func main() {
+
+	db := URLMap{}
 
 	_, err := os.Stat("cmd/db/db.json")
 	if errors.Is(err, os.ErrNotExist) {
@@ -178,7 +175,7 @@ func APInit(db *URLMap, signal *chan bool) {
 	}
 
 	if string(file) != "" {
-		err = json.Unmarshal(file, db)
+		err = json.Unmarshal(file, &db)
 		if err != nil {
 			panic(err)
 		}
@@ -186,6 +183,7 @@ func APInit(db *URLMap, signal *chan bool) {
 
 	// fmt.Println(getRandomLink())
 	// fmt.Println(getRandomLink())
-	SetupCloseHandler(*db, signal)
-	HandleRequests(*db)
+	SetupCloseHandler(db)
+
+	handleRequests(db)
 }
